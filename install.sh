@@ -1,5 +1,6 @@
 systemctl stop hyperion
 cp hyperion-timer.service /etc/systemd/system/hyperion-timer.service
 systemctl daemon-reload
+systemctl enable hyperion-timer
 systemctl start hyperion
 systemctl start hyperion-timer
