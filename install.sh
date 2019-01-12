@@ -1,1 +1,5 @@
-cp hyperion-loopback.service /etc/systemd/system/hyperion-loopback.service
+systemctl stop hyperion
+cp hyperion-timer.service /etc/systemd/system/hyperion-timer.service
+systemctl daemon-reload
+systemctl start hyperion
+systemctl start hyperion-timer
