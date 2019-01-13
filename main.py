@@ -5,8 +5,8 @@ import json
 from datetime import datetime, time
 from time import sleep
 
+color = 157, 124, 37
 on, off = time(17, 30), time(23, 59, 59)
-color = 74, 0, 191
 resolution = 8
 minimum, maximum = 0, (2 ** resolution) - 1
 
@@ -45,40 +45,41 @@ def send(data, host='127.0.0.1'):
         return sock
 
 
+def process_response(response):
+    try:
+        decoded = json.loads(response.decode())
+    except json.decoder.JSONDecodeError:
+        return False
+    try:
+        successful = decoded['success']
+    except KeyError:
+        return False
+    else:
+        return successful
+
+
 def wait_for_response(sock):
     try:
         response = sock.recv(8192)
     except socket.error:
         return False
     else:
-        return json.loads(response)
+        return process_response(response)
 
 
-def process_response(decoded):
-    keys = (decoded['info']['activeEffects'], decoded['info']['activeLedColor'])
-    if (value is not None for value in keys):
-        return True
-    elif decoded['success']:
-        return True
-    else:
-        return False
+def send_color(values, host):
+    return wait_for_response(send(encode_color(*values), host))
 
 
-def run(host='127.0.0.1'):
-    # active = process_response(wait_for_response(send(status(), host)))
-    active = False
+def run(values, host='127.0.0.1', force=False, sleepTime=4):
     while True:
         now = datetime.time(datetime.now())
-        if (on < now < off) and not active:
-            active = process_response(wait_for_response(send(encode_color(*color), host)))
-        elif active and not (on < now < off):
-            active = process_response(wait_for_response(send(clear_all(), host)))
-        sleep(30)
-
-
-def main():
-    run()
+        if (on < now < off) or force:
+            send_color(values, host)
+        elif not (on < now < off):
+            send_color((0, 0, 0), host)
+        sleep(sleepTime)
 
 
 if __name__ == '__main__':
-    main()
+    run(color)
