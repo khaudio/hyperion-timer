@@ -47,7 +47,7 @@ if installService and os.path.exists('/etc/systemd'):
     with open('/tmp/hyperion-timer.service', 'w') as temp:
         temp.write(service)
     commands = (
-            'rm /etc/systemd/system/hyperion-timer.service',
+            'systemctl stop hyperion-timer',
             'cp /tmp/hyperion-timer.service /etc/systemd/system/hyperion-timer.service',
             'systemctl daemon-reload',
             'systemctl enable hyperion-timer',
