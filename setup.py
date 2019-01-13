@@ -1,7 +1,5 @@
-from setuptools import setup, find_packages
 import getpass
 import os
-import shutil
 import subprocess
 
 installService = True
@@ -23,22 +21,31 @@ After=hyperion.service
 WantedBy=default.target
 """.format(username, installPath + '/main.py')
 
-if installService and path.exists('/etc/systemd'):
-    os.makedirs(installPath)
-    shutil.copy2('main.py', installPath)
-    with open('/etc/systemd/system/hyperion-timer.service', 'w') as f:
-        f.write(service)
+if installService and os.path.exists('/etc/systemd'):
     commands = (
-            'chown {} {}/main.py'.format(username, installPath)
-            'chmod +x {}/main.py'.format(installPath)
+            'mkdir -p {}'.format(installPath),
+            'cp main.py {}'.format(installPath),
+            'cp /tmp/hyperion-timer.service /etc/systemd/system/hyperion-timer.service',
+            'chown {} {}/main.py'.format(username, installPath),
+            'chmod +x {}/main.py'.format(installPath),
             'systemctl daemon-reload',
             'systemctl enable hyperion-timer',
             'systemctl start hyperion-timer',
         )
-    for command in commands:
+    for i, command in enumerate(commands):
+        if i == 1:
+            with open('/tmp/hyperion-timer.service', 'w') as temp:
+                temp.write(service)
         split = command.split()
         split.insert(0, 'sudo')
         subprocess.run(split)
+
+
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    if username == 'pi':
+        subprocess.run('sudo apt install -y python3-setuptools'.split())
 
 setup(
         name='Hyperion Timer',
