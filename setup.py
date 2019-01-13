@@ -3,7 +3,6 @@ import os
 import subprocess
 
 installService = True
-installPath = '/etc/hyperion-timer'
 username = getpass.getuser()
 service = """
 [Unit]
@@ -12,34 +11,14 @@ Description=hyperion-timer
 [Service]
 User={}
 Type=simple
-ExecStart=/usr/bin/python3 {}
+ExecStart=/usr/bin/python3 -m hyperion-timer 157,124,37 17:30, 23:59:59
 StandardOutput=syslog
 StandardError=syslog
 
 [Install]
 After=hyperion.service
 WantedBy=default.target
-""".format(username, installPath + '/main.py')
-
-if installService and os.path.exists('/etc/systemd'):
-    commands = (
-            'mkdir -p {}'.format(installPath),
-            'cp main.py {}'.format(installPath),
-            'cp /tmp/hyperion-timer.service /etc/systemd/system/hyperion-timer.service',
-            'chown {} {}/main.py'.format(username, installPath),
-            'chmod +x {}/main.py'.format(installPath),
-            'systemctl daemon-reload',
-            'systemctl enable hyperion-timer',
-            'systemctl start hyperion-timer',
-        )
-    for i, command in enumerate(commands):
-        if i == 1:
-            with open('/tmp/hyperion-timer.service', 'w') as temp:
-                temp.write(service)
-        split = command.split()
-        split.insert(0, 'sudo')
-        subprocess.run(split)
-
+""".format(username)
 
 try:
     from setuptools import setup, find_packages
@@ -48,7 +27,7 @@ except ImportError:
         subprocess.run('sudo apt install -y python3-setuptools'.split())
 
 setup(
-        name='Hyperion Timer',
+        name='hyperion-timer',
         version='0.1.0',
         description='Starts and stops hyperion-based lighting on a timer.',
         long_description='Periodically sends json messgaes to local or remote hyperion instance to illuminate based on current time.',
@@ -56,9 +35,28 @@ setup(
         author='Kyle Hughes',
         author_email='kyle@kylehughesaudio.com',
         packages=find_packages(exclude=[]),
-        install_requires=['datetime', 'json', 'socket', 'time'],
+        install_requires=[],
         classifiers=[
                 'Programming Language :: Python :: 3.5.3'
                 'Programming Language :: Python :: 3.7.0'
             ]
     )
+
+if installService and os.path.exists('/etc/systemd'):
+    print('Installing service')
+    with open('/tmp/hyperion-timer.service', 'w') as temp:
+        temp.write(service)
+    commands = (
+            'rm /etc/systemd/system/hyperion-timer.service',
+            'cp /tmp/hyperion-timer.service /etc/systemd/system/hyperion-timer.service',
+            'systemctl daemon-reload',
+            'systemctl enable hyperion-timer',
+            'systemctl start hyperion-timer',
+        )
+    for command in commands:
+        split = command.split()
+        split.insert(0, 'sudo')
+        process = subprocess.run(split)
+        if process.returncode is not 0:
+            print('Error:', process.args)
+    print('Installed and enabled hyperion-timer.service')
