@@ -4,10 +4,10 @@ Description=hyperion-timer
 [Service]
 User=pi
 Type=simple
-ExecStart="/usr/bin/python3 /home/pi/hyperion-timer/main.py"
+ExecStart=/usr/bin/python3 /home/pi/hyperion-timer/main.py
 StandardOutput=syslog
 StandardError=syslog
 
 [Install]
-Before=hyperion.service
+After=hyperion.service
 WantedBy=default.target

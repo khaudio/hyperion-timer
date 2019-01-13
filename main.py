@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-import socket
 import json
+import socket
 from datetime import datetime, time
 from time import sleep
 
