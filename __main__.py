@@ -3,18 +3,23 @@
 import json
 import socket
 import sys
+from itertools import chain
 from datetime import datetime, time
 from time import sleep
+
+
+def limit(channel):
+    if channel < minimum:
+        channel = minimum
+    elif channel > maximum:
+        channel = maximum
+    return channel
 
 
 def encode_color(red, green, blue, priority=700):
     if priority < 0:
         priority = 0
-    for channel in (red, green, blue):
-        if channel < minimum:
-            channel = minimum
-        elif channel > maximum:
-            channel = maximum
+    red, green, blue = (limit(channel) for channel in (red, green, blue))
     return json.dumps({
             'color': (red, green, blue),
             'command': 'color',
@@ -33,10 +38,11 @@ def status():
 def send(data, host='127.0.0.1'):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.connect((host, 19444))
+        sock.connect((host, port))
     except:
         raise
     else:
+        print(data)
         sock.send(data)
         return sock
 
@@ -101,9 +107,9 @@ def parse_args():
         if len(values) > 1:
             kwargs['color'] = tuple(int(digit) for digit in values)
         elif len(times) > 1:
-            if 'start' not in kwargs.keys():
+            if 'start' not in kwargs:
                 kwargs['start'] = tuple(int(digit) for digit in times)
-            elif 'stop' not in kwargs.keys():
+            elif 'stop' not in kwargs:
                 kwargs['stop'] = tuple(int(digit) for digit in times)
         elif len(address) == 4 and all(i.isdigit() for i in address):
             kwargs['host'] = arg
@@ -114,18 +120,10 @@ def parse_args():
 
 if __name__ == '__main__':
     kwargs = parse_args()
-    if 'color' not in kwargs.keys():
-        kwargs['color'] = 157, 124, 37
-    if 'resolution' in kwargs.keys():
-        resolution = kwargs.pop('resolution')
-    else:
-        resolution = 8
-    if 'maximum' in kwargs.keys():
-        maximum = kwargs.pop('maximum')
-    else:
+    keys = ('color', 'port', 'resolution', 'minimum')
+    defaults = ((157, 124, 37), 19444, 8, 0)
+    for key, default in zip(keys, defaults):
+        globals()[key] = kwargs.pop(key) if key in kwargs else default
+    if 'maximum' not in chain(kwargs, globals()):
         maximum = (2 ** resolution) - 1
-    if 'minimum' in kwargs.keys():
-        minimum = kwargs.pop('minimum')
-    else:
-        minimum = 0
-    run(kwargs.pop('color'), **kwargs)
+    run(color, **kwargs)
