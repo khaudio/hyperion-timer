@@ -1,6 +1,9 @@
+from setuptools import setup, find_packages
+from scandir import scandir
 import getpass
 import os
 import subprocess
+import sys
 
 installService = True
 username = getpass.getuser()
@@ -11,7 +14,7 @@ Description=hyperion-timer
 [Service]
 User={}
 Type=simple
-ExecStart=/usr/bin/python3 -m hyperion-timer 157,124,37 17:30, 23:59:59
+ExecStart=/usr/bin/python3 -m hyperiontimer 157,124,37 17:30, 23:59:59
 StandardOutput=syslog
 StandardError=syslog
 
@@ -20,14 +23,8 @@ After=hyperion.service
 WantedBy=default.target
 """.format(username)
 
-try:
-    from setuptools import setup, find_packages
-except ImportError:
-    if username == 'pi':
-        subprocess.run('sudo apt install -y python3-setuptools'.split())
-
 setup(
-        name='hyperion-timer',
+        name='hyperiontimer',
         version='0.1.0',
         description='Starts and stops hyperion-based lighting on a timer.',
         long_description='Periodically sends json messgaes to local or remote hyperion instance to illuminate based on current time.',
@@ -42,8 +39,31 @@ setup(
             ]
     )
 
+def get_filename():
+    for filename in ('.bashrc', '.bash_profile'):
+        path = os.path.expanduser('~' + os.sep + filename)
+        if os.path.exists(path):
+            return path
+
+def python_path_set():
+    for path in sys.path:
+        if path and path in os.environ['PATH']:
+            for scanned in scandir(path):
+                if os.path.expanduser('~') in scanned.path:
+                    return True
+
+def set_env():
+    if not python_path_set():
+        filename = get_filename()
+        if filename:
+            with open(filename, 'a') as profile:
+                path = os.path.expanduser(os.path.join('~', '.local', 'bin'))
+                profile.write('\nexport PATH=$PATH:{}\n'.format(path))
+                subprocess.run('source', filename)
+
 if installService and os.path.exists('/etc/systemd'):
     print('Installing service')
+    set_env()    
     with open('/tmp/hyperion-timer.service', 'w') as temp:
         temp.write(service)
     commands = (

@@ -42,7 +42,6 @@ def send(data, host='127.0.0.1'):
     except:
         raise
     else:
-        print(data)
         sock.send(data)
         return sock
 
