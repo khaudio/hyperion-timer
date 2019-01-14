@@ -55,14 +55,18 @@ def set_env():
     if not python_path_set():
         filename = get_filename()
         if filename:
+            with open(filename, 'r') as profile:
+                for line in profile:
+                    if path in line:
+                        return
             with open(filename, 'a') as profile:
                 path = os.path.expanduser(os.path.join('~', '.local'))
-                profile.write('\nexport PATH=$PATH:{}\n'.format(path))
-                subprocess.run('source', filename)
+                profile.write('export PATH=$PATH:{}\n'.format(path))
+                print('Added {} to $PATH'.format(path))
 
 if installService and os.path.exists('/etc/systemd'):
     print('Installing service')
-    set_env()    
+    set_env()
     with open('/tmp/hyperion-timer.service', 'w') as temp:
         temp.write(service)
     commands = (
