@@ -55,12 +55,12 @@ def set_env():
     if not python_path_set():
         filename = get_filename()
         if filename:
+            path = os.path.expanduser(os.path.join('~', '.local'))
             with open(filename, 'r') as profile:
                 for line in profile:
                     if path in line:
                         return
             with open(filename, 'a') as profile:
-                path = os.path.expanduser(os.path.join('~', '.local'))
                 profile.write('export PATH=$PATH:{}\n'.format(path))
                 print('Added {} to $PATH'.format(path))
 
