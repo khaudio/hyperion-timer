@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-from scandir import scandir
 import getpass
 import os
 import subprocess
@@ -48,7 +47,7 @@ def get_filename():
 def python_path_set():
     for path in sys.path:
         if path and path in os.environ['PATH']:
-            for scanned in scandir(path):
+            for scanned in os.scandir(path):
                 if os.path.expanduser('~') in scanned.path:
                     return True
 
@@ -57,7 +56,7 @@ def set_env():
         filename = get_filename()
         if filename:
             with open(filename, 'a') as profile:
-                path = os.path.expanduser(os.path.join('~', '.local', 'bin'))
+                path = os.path.expanduser(os.path.join('~', '.local'))
                 profile.write('\nexport PATH=$PATH:{}\n'.format(path))
                 subprocess.run('source', filename)
 
