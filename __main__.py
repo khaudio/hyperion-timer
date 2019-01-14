@@ -8,6 +8,20 @@ from datetime import datetime, time
 from time import sleep
 
 
+defaults = {
+    'color': (157, 124, 37),
+    'start': (17, 30),
+    'stop': (23, 59, 59),
+    'host': '127.0.0.1',
+    'port': 19444,
+    'resolution': 8,
+    'minimum': 0,
+    'effect': None,
+    'priority': 700,
+    'clear': False
+}
+
+
 def limit(channel):
     if channel < minimum:
         channel = minimum
@@ -16,7 +30,8 @@ def limit(channel):
     return channel
 
 
-def encode_color(red, green, blue, priority=700):
+def encode_color(red, green, blue):
+    global priority
     if priority < 0:
         priority = 0
     red, green, blue = (limit(channel) for channel in (red, green, blue))
@@ -27,15 +42,21 @@ def encode_color(red, green, blue, priority=700):
         }).encode('utf-8') + b'\n'
 
 
+def encode_effect(effect):
+    return json.dumps({
+            'command': 'effect',
+            'effect': {'name': effect},
+            'priority': priority
+        }).encode('utf-8') + b'\n'
+
+
 def clear_all():
-    return json.dumps({'command': 'clearall'}).encode('utf-8') + b'\n'
+    return wait_for_response(send(
+            json.dumps({'command': 'clearall'}).encode('utf-8') + b'\n'
+        ))
 
 
-def status():
-    return json.dumps({'command': 'serverinfo'}).encode('utf-8') + b'\n'
-
-
-def send(data, host='127.0.0.1'):
+def send(data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.connect((host, port))
@@ -68,23 +89,20 @@ def wait_for_response(sock):
         return process_response(response)
 
 
-def send_color(values, host):
-    return wait_for_response(send(encode_color(*values), host))
+def send_color(values):
+    return wait_for_response(send(encode_color(*values)))
 
 
-def run(
-        color, host='127.0.0.1', start=None, stop=None,
-        force=False, sleepTime=4, **kwargs
-    ):
-    if start is None:
-        start = (17, 30)
-    if stop is None:
-        stop = (23, 59, 59)
+def send_effect(effect):
+    return wait_for_response(send(encode_effect(effect)))
+
+
+def run(color, force=False, sleepTime=4, **kwargs):
     on, off = time(*start), time(*stop)
     while True:
         now = datetime.time(datetime.now())
         if (on < now < off) or force:
-            send_color(color, host)
+            send_color(color) if not effect else send_effect(effect)
         elif not (on < now < off):
             send_color((minimum for i in range(3)), host)
         sleep(sleepTime)
@@ -114,15 +132,18 @@ def parse_args():
             kwargs['host'] = arg
         elif arg.startswith('--'):
             explicitKey = arg.lstrip('--')
+            if any(command in explicitKey for command in ('clear', 'clearall')):
+                kwargs['clear'] = True
     return kwargs
 
 
 if __name__ == '__main__':
     kwargs = parse_args()
-    keys = ('color', 'port', 'resolution', 'minimum')
-    defaults = ((157, 124, 37), 19444, 8, 0)
-    for key, default in zip(keys, defaults):
+    for key, default in defaults.items():
         globals()[key] = kwargs.pop(key) if key in kwargs else default
     if 'maximum' not in chain(kwargs, globals()):
         maximum = (2 ** resolution) - 1
-    run(color, **kwargs)
+    if clear:
+        clear_all()
+    else:
+        run(color, **kwargs)
