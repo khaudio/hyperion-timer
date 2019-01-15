@@ -13,7 +13,7 @@ Description=Hyperion Timer
 [Service]
 User={}
 Type=simple
-ExecStart=/usr/bin/python3 -m hyperiontimer 157,124,37 17:30, 23:59:59
+ExecStart=/usr/bin/python3 -m hyperiontimer 157,124,37 17:30 23:59:59
 StandardOutput=syslog
 StandardError=syslog
 
@@ -22,12 +22,41 @@ After=hyperion.service
 WantedBy=default.target
 """.format(username)
 
+
+def get_filename():
+    for filename in ('.bashrc', '.bash_profile'):
+        path = os.path.expanduser('~' + os.sep + filename)
+        if os.path.exists(path):
+            return path
+
+
+def python_path_set():
+    for path in sys.path:
+        if path and path in os.environ['PATH']:
+            for scanned in os.scandir(path):
+                if os.path.expanduser('~') in scanned.path:
+                    return True
+
+
+def set_env():
+    if not python_path_set():
+        filename = get_filename()
+        if filename:
+            with open(filename, 'r') as profile:
+                for line in profile:
+                    if 'PYTHONPATH' in line:
+                        return
+            with open(filename, 'a') as profile:
+                profile.write('export PATH=$PATH:$PYTHONPATH\n')
+                print('Added $PYTHONPATH to $PATH')
+
+
 setup(
         name='hyperiontimer',
         version='0.1.0',
         description='Starts and stops hyperion-based lighting on a timer.',
         long_description='Periodically sends json messgaes to local or remote hyperion instance to illuminate based on current time.',
-        url='https://github.com/khaudio/hyperion-timer',
+        url='https://github.com/khaudio/hyperiontimer',
         author='Kyle Hughes',
         author_email='kyle@kylehughesaudio.com',
         packages=find_packages(exclude=[]),
@@ -38,32 +67,6 @@ setup(
             ]
     )
 
-def get_filename():
-    for filename in ('.bashrc', '.bash_profile'):
-        path = os.path.expanduser('~' + os.sep + filename)
-        if os.path.exists(path):
-            return path
-
-def python_path_set():
-    for path in sys.path:
-        if path and path in os.environ['PATH']:
-            for scanned in os.scandir(path):
-                if os.path.expanduser('~') in scanned.path:
-                    return True
-
-def set_env():
-    if not python_path_set():
-        filename = get_filename()
-        if filename:
-            path = os.path.expanduser(os.path.join('~', '.local'))
-            with open(filename, 'r') as profile:
-                for line in profile:
-                    if path in line:
-                        return
-            with open(filename, 'a') as profile:
-                profile.write('export PATH=$PATH:{}\n'.format(path))
-                print('Added {} to $PATH'.format(path))
-
 if installService and os.path.exists('/etc/systemd'):
     print('Installing service')
     if ensurePath:
@@ -72,6 +75,7 @@ if installService and os.path.exists('/etc/systemd'):
         temp.write(service)
     commands = (
             'systemctl stop hyperiontimer',
+            'systemctl disable hyperiontimer',
             'cp /tmp/hyperiontimer.service /etc/systemd/system/hyperiontimer.service',
             'systemctl daemon-reload',
             'systemctl enable hyperiontimer',
