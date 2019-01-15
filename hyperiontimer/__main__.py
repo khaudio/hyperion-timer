@@ -82,14 +82,16 @@ def process_response(response):
 
 
 def wait_for_response(sock):
-    if pulse:
-        return
     try:
+        if pulse:
+            return
         response = sock.recv(8192)
     except socket.error:
         return False
     else:
-        return process_response(response)
+        process_response(response)
+    finally:
+        sock.close()
 
 
 def send_color(values, host):
@@ -105,13 +107,10 @@ def run(values, force=None, sleepTime=4, **kwargs):
     while True:
         now = datetime.time(datetime.now())
         values.extend(values[-1] for missing in range(len(hosts) - len(values)))
-        print(hosts, values)
         for host, value in zip(hosts, values):
             if not (on < now < off) or (not force and force is not None):
-                print('off')
                 send_color((minimum for i in range(3)), host)
             elif (on < now < off) or force:
-                print('on')
                 send_effect(value, host) if isinstance(value, str) else send_color(value, host)
         force = not force if pulse else force
         sleep(pulse if pulse else sleepTime)
