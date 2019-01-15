@@ -4,11 +4,11 @@ import os
 import subprocess
 import sys
 
-installService = True
+installService, ensurePath = True, True
 username = getpass.getuser()
 service = """
 [Unit]
-Description=hyperion-timer
+Description=Hyperion Timer
 
 [Service]
 User={}
@@ -66,15 +66,16 @@ def set_env():
 
 if installService and os.path.exists('/etc/systemd'):
     print('Installing service')
-    set_env()
-    with open('/tmp/hyperion-timer.service', 'w') as temp:
+    if ensurePath:
+        set_env()
+    with open('/tmp/hyperiontimer.service', 'w') as temp:
         temp.write(service)
     commands = (
-            'systemctl stop hyperion-timer',
-            'cp /tmp/hyperion-timer.service /etc/systemd/system/hyperion-timer.service',
+            'systemctl stop hyperiontimer',
+            'cp /tmp/hyperiontimer.service /etc/systemd/system/hyperiontimer.service',
             'systemctl daemon-reload',
-            'systemctl enable hyperion-timer',
-            'systemctl start hyperion-timer',
+            'systemctl enable hyperiontimer',
+            'systemctl start hyperiontimer',
         )
     for command in commands:
         split = command.split()
@@ -82,4 +83,4 @@ if installService and os.path.exists('/etc/systemd'):
         process = subprocess.run(split)
         if process.returncode is not 0:
             print('Error:', process.args)
-    print('Installed and enabled hyperion-timer.service')
+    print('Installed and enabled hyperiontimer.service')
