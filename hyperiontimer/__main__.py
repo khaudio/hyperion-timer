@@ -1,22 +1,21 @@
 #!/usr/bin/python3
 
+from datetime import datetime, time
+from time import sleep
+import itertools
 import json
 import socket
 import sys
-from itertools import chain
-from datetime import datetime, time
-from time import sleep
 
 
 defaults = {
-    'color': (157, 124, 37),
+    'colors': [(157, 124, 37)],
     'start': (17, 30),
     'stop': (23, 59, 59),
-    'host': '127.0.0.1',
+    'hosts': {'127.0.0.1:19444'},
     'port': 19444,
     'resolution': 8,
     'minimum': 0,
-    'effect': None,
     'priority': 700,
     'clear': False
 }
@@ -38,7 +37,7 @@ def encode_color(red, green, blue):
     return json.dumps({
             'color': (red, green, blue),
             'command': 'color',
-            'priority': priority
+            'priority': int(priority)
         }).encode('utf-8') + b'\n'
 
 
@@ -46,20 +45,21 @@ def encode_effect(effect):
     return json.dumps({
             'command': 'effect',
             'effect': {'name': effect},
-            'priority': priority
+            'priority': int(priority)
         }).encode('utf-8') + b'\n'
 
 
-def clear_all():
+def clear_all(host):
     return wait_for_response(send(
-            json.dumps({'command': 'clearall'}).encode('utf-8') + b'\n'
+            json.dumps({'command': 'clearall'}).encode('utf-8') + b'\n', host
         ))
 
 
-def send(data):
+def send(data, host):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.connect((host, port))
+        address = list(host.split(':'))
+        sock.connect((address[0], int(address[1])))
     except:
         raise
     else:
@@ -89,61 +89,75 @@ def wait_for_response(sock):
         return process_response(response)
 
 
-def send_color(values):
-    return wait_for_response(send(encode_color(*values)))
+def send_color(values, host):
+    return wait_for_response(send(encode_color(*values), host))
 
 
-def send_effect(effect):
-    return wait_for_response(send(encode_effect(effect)))
+def send_effect(effect, host):
+    return wait_for_response(send(encode_effect(effect), host))
 
 
-def run(color, force=False, sleepTime=4, **kwargs):
+def run(values, force=None, sleepTime=4, pulse=False, **kwargs):
     on, off = time(*start), time(*stop)
     while True:
         now = datetime.time(datetime.now())
-        if (on < now < off) or force:
-            send_color(color) if not effect else send_effect(effect)
-        elif not (on < now < off):
-            send_color((minimum for i in range(3)), host)
-        sleep(sleepTime)
+        values.extend(values[-1] for missing in range(len(hosts) - len(values)))
+        print(hosts, values)
+        for host, value in zip(hosts, values):
+            if not (on < now < off) or (not force and force is not None):
+                print('off')
+                send_color((minimum for i in range(3)), host)
+            elif (on < now < off) or force:
+                print('on')
+                send_effect(value, host) if isinstance(value, str) else send_color(value, host)
+        force = not force if pulse else force
+        sleep(pulse if pulse else sleepTime)
 
 
 def parse_args():
-    kwargs, explicitKey = {}, None
+    kwargs, explicitKey, port = {'colors': [], 'hosts': set()}, None, None
     for arg in sys.argv[1:]:
         values = arg.split(',')
         times = arg.split(':')
-        address = arg.split('.')
+        addressPort = arg.partition(':')
+        address = addressPort[0].split('.')
         if explicitKey:
             try:
-                value = int(arg)
+                value = float(arg)
             except:
-                value = arg
+                value = arg.strip("'").strip('"')
+            if explicitKey == 'effect' and isinstance(value, str):
+                kwargs['colors'].append(value)
             kwargs[explicitKey] = value
             explicitKey = None
         if len(values) > 1:
-            kwargs['color'] = tuple(int(digit) for digit in values)
+            kwargs['colors'].append(tuple(int(digit) for digit in values))
+        elif '.' in addressPort[0] and addressPort[2].isdigit():
+            port = addressPort[2]
         elif len(times) > 1:
             if 'start' not in kwargs:
                 kwargs['start'] = tuple(int(digit) for digit in times)
             elif 'stop' not in kwargs:
                 kwargs['stop'] = tuple(int(digit) for digit in times)
-        elif len(address) == 4 and all(i.isdigit() for i in address):
-            kwargs['host'] = arg
         elif arg.startswith('--'):
             explicitKey = arg.lstrip('--')
             if any(command in explicitKey for command in ('clear', 'clearall')):
                 kwargs['clear'] = True
+        if len(address) == 4 and all(i.isdigit() for i in address):
+            kwargs['hosts'].add('{}:{}'.format(addressPort[0], port if port else defaults['port']))
     return kwargs
 
 
 if __name__ == '__main__':
     kwargs = parse_args()
     for key, default in defaults.items():
+        if key in ('colors', 'hosts') and not kwargs[key]:
+            kwargs.pop(key)
         globals()[key] = kwargs.pop(key) if key in kwargs else default
-    if 'maximum' not in chain(kwargs, globals()):
+    if 'maximum' not in itertools.chain(kwargs, globals()):
         maximum = (2 ** resolution) - 1
     if clear:
-        clear_all()
+        for host in hosts:
+            clear_all(host)
     else:
-        run(color, **kwargs)
+        run(colors, **kwargs)
