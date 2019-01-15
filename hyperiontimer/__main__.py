@@ -17,7 +17,8 @@ defaults = {
     'resolution': 8,
     'minimum': 0,
     'priority': 700,
-    'clear': False
+    'clear': False,
+    'pulse': False
 }
 
 
@@ -81,6 +82,8 @@ def process_response(response):
 
 
 def wait_for_response(sock):
+    if pulse:
+        return
     try:
         response = sock.recv(8192)
     except socket.error:
@@ -97,7 +100,7 @@ def send_effect(effect, host):
     return wait_for_response(send(encode_effect(effect), host))
 
 
-def run(values, force=None, sleepTime=4, pulse=False, **kwargs):
+def run(values, force=None, sleepTime=4, **kwargs):
     on, off = time(*start), time(*stop)
     while True:
         now = datetime.time(datetime.now())
