@@ -104,14 +104,20 @@ def send_effect(effect, host):
 
 def run(values, force=None, sleepTime=4, **kwargs):
     on, off = time(*start), time(*stop)
+    active = False
     while True:
         now = datetime.time(datetime.now())
         values.extend(values[-1] for missing in range(len(hosts) - len(values)))
         for host, value in zip(hosts, values):
             if not (on < now < off) or (not force and force is not None):
                 send_color((minimum for i in range(3)), host)
+                active = False
             elif (on < now < off) or force:
-                send_effect(value, host) if isinstance(value, str) else send_color(value, host)
+                if isinstance(value, str) and not active:
+                    send_effect(value, host)
+                else:
+                    send_color(value, host)
+                active = True
         force = not force if pulse else force
         sleep(pulse if pulse else sleepTime)
 
