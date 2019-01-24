@@ -9,6 +9,7 @@ username = getpass.getuser()
 service = """
 [Unit]
 Description=Hyperion Timer
+After=hyperion.service
 
 [Service]
 User={}
@@ -18,7 +19,6 @@ StandardOutput=syslog
 StandardError=syslog
 
 [Install]
-After=hyperion.service
 WantedBy=default.target
 """.format(username)
 

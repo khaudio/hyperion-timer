@@ -12,7 +12,7 @@ defaults = {
     'colors': [(157, 124, 37)],
     'start': (17, 30),
     'stop': (23, 59, 59),
-    'hosts': {'127.0.0.1:19444'},
+    'hosts': ['127.0.0.1:19444'],
     'port': 19444,
     'resolution': 8,
     'minimum': 0,
@@ -70,7 +70,7 @@ def send(data, host):
 
 def process_response(response):
     try:
-        decoded = json.loads(response.decode())
+        decoded = json.loads(response.decode().rstrip())
     except json.decoder.JSONDecodeError:
         return False
     try:
@@ -102,28 +102,28 @@ def send_effect(effect, host):
     return wait_for_response(send(encode_effect(effect), host))
 
 
-def run(values, force=None, sleepTime=4, **kwargs):
+def run(values, force=None, interval=4, **kwargs):
     on, off = time(*start), time(*stop)
-    active = False
+    activity = {host: False for host in hosts}
     while True:
         now = datetime.time(datetime.now())
         values.extend(values[-1] for missing in range(len(hosts) - len(values)))
         for host, value in zip(hosts, values):
             if not (on < now < off) or (not force and force is not None):
                 send_color((minimum for i in range(3)), host)
-                active = False
+                activity[host] = False
             elif (on < now < off) or force:
-                if isinstance(value, str) and not active:
+                if isinstance(value, str) and not activity[host]:
                     send_effect(value, host)
-                else:
+                elif isinstance(value, tuple):
                     send_color(value, host)
-                active = True
+                activity[host] = True
         force = not force if pulse else force
-        sleep(pulse if pulse else sleepTime)
+        sleep(pulse if pulse else interval)
 
 
 def parse_args():
-    kwargs, explicitKey, port = {'colors': [], 'hosts': set()}, None, None
+    kwargs, explicitKey, port = {'colors': [], 'hosts': []}, None, None
     for arg in sys.argv[1:]:
         values = arg.split(',')
         times = arg.split(':')
@@ -152,7 +152,7 @@ def parse_args():
             if any(command in explicitKey for command in ('clear', 'clearall')):
                 kwargs['clear'] = True
         if len(address) == 4 and all(i.isdigit() for i in address):
-            kwargs['hosts'].add('{}:{}'.format(addressPort[0], port if port else defaults['port']))
+            kwargs['hosts'].append('{}:{}'.format(addressPort[0], port if port else defaults['port']))
     return kwargs
 
 
