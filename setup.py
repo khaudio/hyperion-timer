@@ -14,7 +14,7 @@ After=hyperion.service
 [Service]
 User={}
 Type=simple
-ExecStart=/usr/bin/python3 -m hyperiontimer 157,124,37 17:30 23:59:59
+ExecStart=/usr/bin/python3 -m hyperiontimer 17:30 23:59:59 157,124,37
 StandardOutput=syslog
 StandardError=syslog
 

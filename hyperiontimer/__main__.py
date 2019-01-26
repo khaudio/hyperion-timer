@@ -35,31 +35,37 @@ def encode_color(red, green, blue):
     if priority < 0:
         priority = 0
     red, green, blue = (limit(channel) for channel in (red, green, blue))
-    return json.dumps({
-            'color': (red, green, blue),
-            'command': 'color',
-            'priority': int(priority)
-        }).encode('utf-8') + b'\n'
+    return encode_message(
+            color=(red, green, blue),
+            command='color',
+            priority=int(priority)
+        )
 
 
 def encode_effect(effect):
-    return json.dumps({
-            'command': 'effect',
-            'effect': {'name': effect},
-            'priority': int(priority)
-        }).encode('utf-8') + b'\n'
+    return encode_message(
+            command='effect',
+            effect={'name': effect},
+            priority=int(priority)
+        )
 
 
 def clear_all(host):
-    return wait_for_response(send(
-            json.dumps({'command': 'clearall'}).encode('utf-8') + b'\n', host
-        ))
+    return wait_for_response(send(encode_message(command='clearall'), host))
+
+
+def encode_message(message=None, **kwargs):
+    if not message:
+        message = kwargs
+    else:
+        message.update(kwargs)
+    return json.dumps(message).encode('utf-8') + b'\n'
 
 
 def send(data, host):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        address = list(host.split(':'))
+        address = host.split(':')
         sock.connect((address[0], int(address[1])))
     except:
         raise
@@ -78,7 +84,7 @@ def process_response(response):
     except KeyError:
         return False
     else:
-        return successful
+        return successful, decoded
 
 
 def wait_for_response(sock):
@@ -89,35 +95,44 @@ def wait_for_response(sock):
     except socket.error:
         return False
     else:
-        process_response(response)
+        return process_response(response)
     finally:
         sock.close()
 
 
 def send_color(values, host):
-    return wait_for_response(send(encode_color(*values), host))
+    successful, _ = wait_for_response(send(encode_color(*values), host))
+    return successful
 
 
 def send_effect(effect, host):
-    return wait_for_response(send(encode_effect(effect), host))
+    successful, _ = wait_for_response(send(encode_effect(effect), host))
+    return successful
 
 
 def run(values, force=None, interval=4, **kwargs):
     on, off = time(*start), time(*stop)
     activity = {host: False for host in hosts}
+    timer, initialized = 0, False
     while True:
         now = datetime.time(datetime.now())
         values.extend(values[-1] for missing in range(len(hosts) - len(values)))
         for host, value in zip(hosts, values):
-            if not (on < now < off) or (not force and force is not None):
-                send_color((minimum for i in range(3)), host)
-                activity[host] = False
-            elif (on < now < off) or force:
-                if isinstance(value, str) and not activity[host]:
-                    send_effect(value, host)
-                elif isinstance(value, tuple):
-                    send_color(value, host)
-                activity[host] = True
+            if (
+                    (off < now < on)
+                    and (activity[host] or not initialized or timer >= 10)
+                    or (not force and force is not None)
+                ):
+                activity[host] = not send_color(tuple(minimum for i in range(3)), host)
+            elif ((on < now < off) and not any((activity[host], initialized))) or force:
+                if isinstance(value, str):
+                    if not activity[host]:
+                        activity[host] = send_effect(value, host)
+                elif isinstance(value, tuple) and (not initialized or timer >= 10):
+                    activity[host] = send_color(value, host)
+        if timer > 10:
+            timer = 0
+        timer += interval
         force = not force if pulse else force
         sleep(pulse if pulse else interval)
 
